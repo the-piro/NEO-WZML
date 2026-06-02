@@ -173,9 +173,26 @@ class TelegramUploader:
                 return False
 
         else:
-            self._sent_msg = self._listener.message
-            self._upload_chat_id = self._listener.message.chat.id
-            self._reply_to_id = self._listener.message.id
+            try:
+                self._sent_msg = await TgClient.bot.send_message(
+                    chat_id=self._listener.user_id,
+                    text=".",
+                    disable_notification=True,
+                    reply_to_message_id=(
+                        self._listener.pm_msg.id if self._listener.pm_msg else None
+                    ),
+                )
+                self._upload_chat_id = self._sent_msg.chat.id
+                self._reply_to_id = self._sent_msg.id
+                self._bot_pm = False
+                self._is_private = True
+            except Exception as e:
+                await self._cleanup_auto_thumb()
+                await self._listener.on_upload_error(
+                    f"Cannot upload: Bot PM unavailable. Error: {e}"
+                )
+                return False
+
         return True
 
     async def _switching_client(self):
@@ -859,7 +876,7 @@ class TelegramUploader:
                     dumps_to_forward = ldumps
                 else:
                     dumps_to_forward = {}
-                
+
                 for dump_name, dump_chat in dumps_to_forward.items():
                     try:
                         dump_thread_id = None
